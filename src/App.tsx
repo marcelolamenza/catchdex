@@ -37,10 +37,10 @@ function TypeBadge({ type }: { type: string }) {
     <span>{label}</span>
   </span>;
 }
-function PokeballIcon({ caught = false }: { caught?: boolean }) {
+function PokeballIcon({ caught = false, wasOnTeam = false }: { caught?: boolean; wasOnTeam?: boolean }) {
   return <svg className={`pokeball-icon ${caught ? "is-caught" : ""}`} viewBox="0 0 28 28" aria-hidden="true">
     <circle cx="14" cy="14" r="11.3" fill="#fff" stroke="currentColor" strokeWidth="1.7" />
-    <path d="M2.8 14a11.2 11.2 0 0 1 22.4 0Z" fill={caught ? "#d7a941" : "#e35d55"} />
+    <path d="M2.8 14a11.2 11.2 0 0 1 22.4 0Z" fill={wasOnTeam ? "#d7a941" : "#e35d55"} />
     <path d="M2.8 14h22.4" stroke="currentColor" strokeWidth="2.2" />
     <circle cx="14" cy="14" r="3.5" fill="#fff" stroke="currentColor" strokeWidth="1.7" />
     <circle cx="14" cy="14" r="1.35" fill="currentColor" />
@@ -114,7 +114,7 @@ export default function App() {
     {error&&<div className="notice" role="status">{error}{user&&cloudStatus==="error"&&<button className="retry" onClick={retrySync}>Retry sync</button>}<button onClick={()=>setError("")}>Dismiss</button></div>}
     <section className="grid" aria-label="Pokémon collection">{visible.map(p=>{const state=progress[p.id]??EMPTY;return <article className={`pokemon ${state.caught?"caught":""} ${state.wasOnTeam?"teammate":""} ${animating===p.id?"catching":""} ${selected?.id===p.id?"selected":""}`} style={typeCardStyle(p.types)} key={p.id}>
       <button className="open-card" onClick={()=>setSelected(p)} aria-label={`View #${p.id} ${p.name}`}><span className="number">#{String(p.id).padStart(4,"0")}</span><span className="spritewrap"><img src={p.sprite} alt="" loading="lazy" decoding="async" onError={e=>fallbackSprite(e,p.id)}/></span><span className="name">{p.name}</span><span className="types">{p.types.map(t=><TypeBadge key={t} type={t}/>)}</span></button>
-      <div className="card-actions"><button className={state.caught?"catch-toggle on":"catch-toggle"} onClick={()=>change(p.id,{caught:!state.caught})} disabled={authLoading||cloudLoading} aria-label={state.caught?"Mark uncaught":"Mark caught"} title={state.caught?"Caught":"Mark caught"}><PokeballIcon caught={state.caught}/></button><button className={state.wasOnTeam?"team-toggle on":"team-toggle"} onClick={()=>change(p.id,{wasOnTeam:!state.wasOnTeam})} disabled={authLoading||cloudLoading} aria-label={state.wasOnTeam?"Remove team history":"Mark as team member"} title="On my team">{state.wasOnTeam?"★":"☆"}</button></div>
+      <div className="card-actions"><button className={state.caught?"catch-toggle on":"catch-toggle"} onClick={()=>change(p.id,{caught:!state.caught})} disabled={authLoading||cloudLoading} aria-label={state.caught?"Mark uncaught":"Mark caught"} title={state.caught?"Caught":"Mark caught"}><PokeballIcon caught={state.caught} wasOnTeam={state.wasOnTeam}/></button><button className={state.wasOnTeam?"team-toggle on":"team-toggle"} onClick={()=>change(p.id,{wasOnTeam:!state.wasOnTeam})} disabled={authLoading||cloudLoading} aria-label={state.wasOnTeam?"Remove team history":"Mark as team member"} title="On my team">{state.wasOnTeam?"★":"☆"}</button></div>
       {state.wasOnTeam&&<span className="team-badge" aria-label="Was on your team" title="Was on your team">★</span>}
     </article>})}</section>
     {visible.length===0&&<div className="empty">No Pokémon found.</div>}
@@ -132,7 +132,7 @@ export default function App() {
       <div className="types detail-types">{selected.types.map(t=><TypeBadge key={t} type={t}/>)}</div>
       <section className="detail-stats" aria-label={`${selected.name} base stats`}><p className="eyebrow">BASE STATS</p><div className="stat-grid">{baseStatLabels.map(([key,label])=>{const value=selected.baseStats[key];return <div className="stat-item" key={key}><div className="stat-heading"><span>{label}</span><strong>{value}</strong></div><div className="stat-track" role="meter" aria-label={label} aria-valuemin={0} aria-valuemax={255} aria-valuenow={value}><i style={{width:`${value/255*100}%`}}/></div></div>})}</div></section>
       <div className="detail-status" aria-label="Pokémon status"><span><i className={(progress[selected.id]??EMPTY).caught?"status-dot caught-dot":"status-dot"}/><strong>Status</strong><b>{(progress[selected.id]??EMPTY).caught?"Caught":"Uncaught"}</b></span><span><i className={(progress[selected.id]??EMPTY).wasOnTeam?"status-dot team-dot":"status-dot"}/><strong>Team</strong><b>{(progress[selected.id]??EMPTY).wasOnTeam?"Was on your team":"Not on your team"}</b></span></div>
-      <div className="detail-actions"><button disabled={authLoading||cloudLoading} onClick={()=>change(selected.id,{caught:!(progress[selected.id]??EMPTY).caught})}><PokeballIcon caught={(progress[selected.id]??EMPTY).caught}/>{(progress[selected.id]??EMPTY).caught?"Mark uncaught":"Mark caught"}</button><button disabled={authLoading||cloudLoading} className={(progress[selected.id]??EMPTY).wasOnTeam?"team-selected":""} onClick={()=>change(selected.id,{wasOnTeam:!(progress[selected.id]??EMPTY).wasOnTeam})}>{(progress[selected.id]??EMPTY).wasOnTeam?"★ Remove from team":"☆ Add to team history"}</button></div>
+      <div className="detail-actions"><button disabled={authLoading||cloudLoading} onClick={()=>change(selected.id,{caught:!(progress[selected.id]??EMPTY).caught})}><PokeballIcon caught={(progress[selected.id]??EMPTY).caught} wasOnTeam={(progress[selected.id]??EMPTY).wasOnTeam}/>{(progress[selected.id]??EMPTY).caught?"Mark uncaught":"Mark caught"}</button><button disabled={authLoading||cloudLoading} className={(progress[selected.id]??EMPTY).wasOnTeam?"team-selected":""} onClick={()=>change(selected.id,{wasOnTeam:!(progress[selected.id]??EMPTY).wasOnTeam})}>{(progress[selected.id]??EMPTY).wasOnTeam?"★ Remove from team":"☆ Add to team history"}</button></div>
     </section></div>}
     {toast&&<div className="toast" role="status">✦ &nbsp;{toast}</div>}
     <footer>Tracking 1,025 species <span>·</span> Progress stays yours</footer>
