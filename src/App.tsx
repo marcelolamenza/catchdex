@@ -78,6 +78,7 @@ export default function App() {
     return()=>{cancelled=true;};
   },[user,syncAttempt]);
   const visible=useMemo(()=>filterByGeneration(catalog,generation).filter(p=>!search||p.name.toLowerCase().includes(search.toLowerCase())||String(p.id).includes(search)),[generation,search]);
+  const generationTotal=useMemo(()=>generation>0?catalog.filter(p=>p.generation===generation).length:0,[generation]);
   const overallCaught=useMemo(()=>catalog.reduce((count,p)=>count+(progress[p.id]?.caught?1:0),0),[progress]);
   const completion=(overallCaught/catalog.length)*100;
   function change(id:number, patch:{caught?:boolean;wasOnTeam?:boolean}) {
@@ -102,11 +103,12 @@ export default function App() {
       <div className="account">{firebaseReady?(user?<><span className="user-label">{user.displayName||user.email}</span><button className="quiet" onClick={logout} disabled={authLoading||cloudLoading}>Sign out</button></>:<button className="signin" onClick={login} disabled={authLoading}>{authLoading?"Connecting…":"Sign in with Google"}</button>):<span className="local-pill">Local mode</span>}</div>
     </header>
     {!firebaseReady&&<div className="notice firebase-setup" role="status">Google sign-in and cloud saves need Firebase setup. Missing: {firebaseMissingConfig.join(", ")}. See README.</div>}
-    <section className="heading"><div><p className="eyebrow">YOUR PERSONAL POK&#xE9;DEX</p><h1>Every catch, <span>remembered.</span></h1></div><div className="progressbox"><div className="progressline"><strong>{overallCaught} / {catalog.length}</strong><span> caught ({completion.toFixed(1)}%)</span></div><div className="track" role="progressbar" aria-label="Pokedex completion" aria-valuemin={0} aria-valuemax={catalog.length} aria-valuenow={overallCaught}><i style={{width:`${completion}%`}}/></div></div></section>
+    <section className="heading"><div><p className="eyebrow">YOUR PERSONAL POK&#xE9;DEX</p></div><div className="progressbox"><div className="progressline"><strong>{overallCaught} / {catalog.length}</strong><span> caught ({completion.toFixed(1)}%)</span></div><div className="track" role="progressbar" aria-label="Pokedex completion" aria-valuemin={0} aria-valuemax={catalog.length} aria-valuenow={overallCaught}><i style={{width:`${completion}%`}}/></div></div></section>
     <section className="toolbar"><div className="filters" aria-label="Filter by generation"><button className={generation===0?"chip active":"chip"} onClick={()=>setGeneration(0)}>All</button>{generations.map((item,i)=><button key={item.region} className={generation===i+1?"chip active":"chip"} onClick={()=>setGeneration(i+1)}>Gen {i+1}</button>)}</div><label className="search"><span>⌕</span><input aria-label="Search Pokémon" placeholder="Find a Pokémon" value={search} onChange={e=>setSearch(e.target.value)}/></label></section>
     {generation>0&&<section className={`generation-feature ${generations[generation-1].palette}`} aria-label={`Generation ${generation}: ${generations[generation-1].region}`}>
       <div className="generation-logo-frame"><span className="generation-logo-square"><img className="generation-game-logo" src={`${import.meta.env.BASE_URL}game-logos/${generations[generation-1].logo}`} alt={`${generations[generation-1].logoName} logo`} loading="lazy" onError={e=>{e.currentTarget.hidden=true;}}/></span></div>
       <div className="generation-copy"><p className="eyebrow">EXPLORE THE REGION</p><h2>{generations[generation-1].region}</h2><div className="game-names" aria-label="Related games">{generations[generation-1].games.map(game=><span className="game-name-art" key={game}>{game}</span>)}</div></div>
+      <div className="generation-total" aria-label={`${generationTotal} Pokémon in generation ${generation}`}><strong>{generationTotal}</strong><span>POKÉMON</span></div>
 
 
     </section>}
