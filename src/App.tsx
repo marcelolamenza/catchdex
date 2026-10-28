@@ -19,6 +19,7 @@ export default function App() {
   const [error,setError]=useState("");
   const [search,setSearch]=useState("");
   const [toast,setToast]=useState("");
+  const [animating,setAnimating]=useState<number|null>(null);
   useEffect(()=>{ if(!auth) return; return onAuthStateChanged(auth,u=>{setUser(u);setAuthLoading(false);}); },[]);
   useEffect(()=>{ localStorage.setItem(STORE,JSON.stringify(progress)); },[progress]);
   useEffect(()=>{
@@ -39,7 +40,7 @@ export default function App() {
   const caught=useMemo(()=>visible.filter(p=>progress[p.id]?.caught).length,[visible,progress]);
   function change(id:number, patch:{caught?:boolean;wasOnTeam?:boolean}) {
     const before=progress[id]??EMPTY; const next=updateProgress(progress,id,patch);setProgress(next);
-    if(!before.caught&&next[id].caught){setToast("Pokémon caught!");window.setTimeout(()=>setToast(""),1200);}
+    if(!before.caught&&next[id].caught){setAnimating(id);window.setTimeout(()=>setAnimating(current=>current===id?null:current),500);setToast("Pokémon caught!");window.setTimeout(()=>setToast(""),1200);}
     if(user&&db)setDoc(doc(db,"users",user.uid,"progress",String(id)),{...next[id],updatedAt:Date.now()}).catch(()=>setError("Could not sync this change. It is saved on this device."));
   }
   async function login(){if(!auth)return;try{setAuthLoading(true);await signInWithPopup(auth,googleProvider);}catch{setError("Google sign-in did not complete. Please try again.");}finally{setAuthLoading(false);}}
@@ -51,7 +52,7 @@ export default function App() {
     <section className="toolbar"><div className="filters" aria-label="Filter by generation">{generations.map((name,i)=><button key={name} className={generation===i?"chip active":"chip"} onClick={()=>setGeneration(i)}>{i===0?"All":`Gen ${i}`}</button>)}</div><label className="search"><span>⌕</span><input aria-label="Search Pokémon" placeholder="Find a Pokémon" value={search} onChange={e=>setSearch(e.target.value)}/></label></section>
     <div className="subline"><span>{generation===0?"All generations":generations[generation]} <b>·</b> {visible.length} Pokémon</span><span>{cloudLoading?"Syncing…":user?"Cloud sync on":"Changes saved on this device"}</span></div>
     {error&&<div className="notice" role="status">{error}<button onClick={()=>setError("")}>Dismiss</button></div>}
-    <section className="grid" aria-label="Pokémon collection">{visible.map(p=>{const state=progress[p.id]??EMPTY;return <article className={`pokemon ${state.caught?"caught":""} ${state.wasOnTeam?"teammate":""}`} key={p.id}>
+    <section className="grid" aria-label="Pokémon collection">{visible.map(p=>{const state=progress[p.id]??EMPTY;return <article className={`pokemon ${state.caught?"caught":""} ${state.wasOnTeam?"teammate":""} ${animating===p.id?"catching":""}`} key={p.id}>
       <button className="open-card" onClick={()=>setSelected(p)} aria-label={`View #${p.id} ${p.name}`}><span className="number">#{String(p.id).padStart(4,"0")}</span><span className="spritewrap"><img src={p.sprite} alt="" loading="lazy" decoding="async" onError={e=>{e.currentTarget.src=`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${p.id}.png`;e.currentTarget.onerror=()=>{e.currentTarget.src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='80'%3E%E2%9C%A6%3C/text%3E%3C/svg%3E`;};}}/></span><span className="name">{p.name}</span><span className="types">{p.types.map(t=><i key={t} className={`type ${t}`}>{t}</i>)}</span></button>
       <div className="card-actions"><button className={state.caught?"catch-toggle on":"catch-toggle"} onClick={()=>change(p.id,{caught:!state.caught})} aria-label={state.caught?"Mark uncaught":"Mark caught"} title={state.caught?"Caught":"Mark caught"}>{state.caught?"✓":"＋"}</button><button className={state.wasOnTeam?"team-toggle on":"team-toggle"} onClick={()=>change(p.id,{wasOnTeam:!state.wasOnTeam})} aria-label={state.wasOnTeam?"Remove team history":"Mark as team member"} title="On my team">{state.wasOnTeam?"★":"☆"}</button></div>
       {state.wasOnTeam&&<span className="team-badge" aria-label="Was on your team" title="Was on your team">★</span>}
