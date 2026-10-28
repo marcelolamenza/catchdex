@@ -25,14 +25,15 @@ export default function App() {
   useEffect(()=>{ localStorage.setItem(STORE,JSON.stringify(progress)); },[progress]);
   useEffect(()=>{
     if(!user||!db)return;
+    const firestore=db;
     let cancelled=false; setCloudLoading(true);setError("");
     (async()=>{try{
-      const ref=collection(db,"users",user.uid,"progress");
+      const ref=collection(firestore,"users",user.uid,"progress");
       const snap=await getDocs(ref); const cloud:ProgressMap={};
       snap.forEach(d=>{const id=Number(d.id);cloud[id]=normalizeProgress({[id]:d.data()})[id]??EMPTY;});
       const merged=mergeProgress(readLocal(),cloud);
       if(cancelled)return; setProgress(merged);
-      await Promise.all(Object.entries(merged).map(([id,value])=>setDoc(doc(db,"users",user.uid,"progress",id),{...value,updatedAt:Date.now()})));
+      await Promise.all(Object.entries(merged).map(([id,value])=>setDoc(doc(firestore,"users",user.uid,"progress",id),{...value,updatedAt:Date.now()})));
     }catch(e){if(!cancelled)setError("Cloud sync failed. Your local progress is safe.");}finally{if(!cancelled)setCloudLoading(false);}})();
     return()=>{cancelled=true;};
   },[user]);
