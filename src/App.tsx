@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type SyntheticEvent } from "react";
 import type { User } from "firebase/auth";
 import catalog from "./data/pokemon.json";
+import { typeArtworkStyle, typeCardStyle } from "./data/typeTheme";
 import { EMPTY, filterByGeneration, updateProgress, type ProgressMap } from "./domain/progress";
 import { firebaseMissingConfig, firebaseReady, observeAuth, signInWithGoogle, signOutCurrentUser } from "./services/firebase";
 import { migrateLocalProgressToCloud } from "./services/progress/migration";
@@ -39,7 +40,7 @@ function TypeBadge({ type }: { type: string }) {
 function PokeballIcon({ caught = false }: { caught?: boolean }) {
   return <svg className={`pokeball-icon ${caught ? "is-caught" : ""}`} viewBox="0 0 28 28" aria-hidden="true">
     <circle cx="14" cy="14" r="11.3" fill="#fff" stroke="currentColor" strokeWidth="1.7" />
-    <path d="M2.8 14a11.2 11.2 0 0 1 22.4 0Z" fill="#e35d55" />
+    <path d="M2.8 14a11.2 11.2 0 0 1 22.4 0Z" fill={caught ? "#d7a941" : "#e35d55"} />
     <path d="M2.8 14h22.4" stroke="currentColor" strokeWidth="2.2" />
     <circle cx="14" cy="14" r="3.5" fill="#fff" stroke="currentColor" strokeWidth="1.7" />
     <circle cx="14" cy="14" r="1.35" fill="currentColor" />
@@ -77,8 +78,8 @@ export default function App() {
     return()=>{cancelled=true;};
   },[user,syncAttempt]);
   const visible=useMemo(()=>filterByGeneration(catalog,generation).filter(p=>!search||p.name.toLowerCase().includes(search.toLowerCase())||String(p.id).includes(search)),[generation,search]);
-  const total=useMemo(()=>generation?catalog.filter(p=>p.generation===generation).length:catalog.length,[generation]);
-  const caught=useMemo(()=>visible.filter(p=>progress[p.id]?.caught).length,[visible,progress]);
+  const overallCaught=useMemo(()=>catalog.reduce((count,p)=>count+(progress[p.id]?.caught?1:0),0),[progress]);
+  const completion=(overallCaught/catalog.length)*100;
   function change(id:number, patch:{caught?:boolean;wasOnTeam?:boolean}) {
     const before=progress[id]??EMPTY; const next=updateProgress(progress,id,patch);setProgress(next);
     if(!before.caught&&next[id].caught){setAnimating(id);window.setTimeout(()=>setAnimating(current=>current===id?null:current),500);setToast("Pokémon caught!");window.setTimeout(()=>setToast(""),1200);}
@@ -101,7 +102,7 @@ export default function App() {
       <div className="account">{firebaseReady?(user?<><span className="user-label">{user.displayName||user.email}</span><button className="quiet" onClick={logout} disabled={authLoading||cloudLoading}>Sign out</button></>:<button className="signin" onClick={login} disabled={authLoading}>{authLoading?"Connecting…":"Sign in with Google"}</button>):<span className="local-pill">Local mode</span>}</div>
     </header>
     {!firebaseReady&&<div className="notice firebase-setup" role="status">Google sign-in and cloud saves need Firebase setup. Missing: {firebaseMissingConfig.join(", ")}. See README.</div>}
-    <section className="heading"><div><p className="eyebrow">YOUR PERSONAL POKÉDEX</p></div><div className="progressbox"><div className="progressline"><strong>{caught}</strong><span> / {total} caught</span></div><div className="track"><i style={{width:`${total?caught/total*100:0}%`}}/></div></div></section>
+    <section className="heading"><div><p className="eyebrow">YOUR PERSONAL POK&#xE9;DEX</p><h1>Every catch, <span>remembered.</span></h1></div><div className="progressbox"><div className="progressline"><strong>{overallCaught} / {catalog.length}</strong><span> caught ({completion.toFixed(1)}%)</span></div><div className="track" role="progressbar" aria-label="Pokedex completion" aria-valuemin={0} aria-valuemax={catalog.length} aria-valuenow={overallCaught}><i style={{width:`${completion}%`}}/></div></div></section>
     <section className="toolbar"><div className="filters" aria-label="Filter by generation"><button className={generation===0?"chip active":"chip"} onClick={()=>setGeneration(0)}>All</button>{generations.map((item,i)=><button key={item.region} className={generation===i+1?"chip active":"chip"} onClick={()=>setGeneration(i+1)}>Gen {i+1}</button>)}</div><label className="search"><span>⌕</span><input aria-label="Search Pokémon" placeholder="Find a Pokémon" value={search} onChange={e=>setSearch(e.target.value)}/></label></section>
     {generation>0&&<section className={`generation-feature ${generations[generation-1].palette}`} aria-label={`Generation ${generation}: ${generations[generation-1].region}`}>
       <div className="generation-logo-frame"><span className="generation-logo-square"><img className="generation-game-logo" src={`${import.meta.env.BASE_URL}game-logos/${generations[generation-1].logo}`} alt={`${generations[generation-1].logoName} logo`} loading="lazy" onError={e=>{e.currentTarget.hidden=true;}}/></span></div>
@@ -111,13 +112,28 @@ export default function App() {
     </section>}
     <div className="subline"><span>{generation===0?"All generations":generations[generation-1].region} <b>·</b> {visible.length} Pokémon</span><span>{cloudLoading?"Loading cloud progress…":user?(cloudStatus==="saving"?"Saving to cloud…":cloudStatus==="error"?"Cloud sync error":"Synced to cloud"):"Changes saved on this device"}</span></div>
     {error&&<div className="notice" role="status">{error}{user&&cloudStatus==="error"&&<button className="retry" onClick={retrySync}>Retry sync</button>}<button onClick={()=>setError("")}>Dismiss</button></div>}
-    <section className="grid" aria-label="Pokémon collection">{visible.map(p=>{const state=progress[p.id]??EMPTY;return <article className={`pokemon ${state.caught?"caught":""} ${state.wasOnTeam?"teammate":""} ${animating===p.id?"catching":""}`} key={p.id}>
+    <section className="grid" aria-label="Pokémon collection">{visible.map(p=>{const state=progress[p.id]??EMPTY;return <article className={`pokemon ${state.caught?"caught":""} ${state.wasOnTeam?"teammate":""} ${animating===p.id?"catching":""} ${selected?.id===p.id?"selected":""}`} style={typeCardStyle(p.types)} key={p.id}>
       <button className="open-card" onClick={()=>setSelected(p)} aria-label={`View #${p.id} ${p.name}`}><span className="number">#{String(p.id).padStart(4,"0")}</span><span className="spritewrap"><img src={p.sprite} alt="" loading="lazy" decoding="async" onError={e=>fallbackSprite(e,p.id)}/></span><span className="name">{p.name}</span><span className="types">{p.types.map(t=><TypeBadge key={t} type={t}/>)}</span></button>
       <div className="card-actions"><button className={state.caught?"catch-toggle on":"catch-toggle"} onClick={()=>change(p.id,{caught:!state.caught})} disabled={authLoading||cloudLoading} aria-label={state.caught?"Mark uncaught":"Mark caught"} title={state.caught?"Caught":"Mark caught"}><PokeballIcon caught={state.caught}/></button><button className={state.wasOnTeam?"team-toggle on":"team-toggle"} onClick={()=>change(p.id,{wasOnTeam:!state.wasOnTeam})} disabled={authLoading||cloudLoading} aria-label={state.wasOnTeam?"Remove team history":"Mark as team member"} title="On my team">{state.wasOnTeam?"★":"☆"}</button></div>
       {state.wasOnTeam&&<span className="team-badge" aria-label="Was on your team" title="Was on your team">★</span>}
     </article>})}</section>
     {visible.length===0&&<div className="empty">No Pokémon found.</div>}
-    {selected&&<div className="backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setSelected(null)}}><section className="detail" role="dialog" aria-modal="true" aria-label={selected.name}><button className="close" onClick={()=>setSelected(null)} aria-label="Close details">×</button><div className={`detail-art ${(progress[selected.id]??EMPTY).caught?"":"silhouette"}`}><img src={selected.sprite} alt={selected.name}/></div><p className="eyebrow">NATIONAL DEX #{String(selected.id).padStart(4,"0")} · GEN {selected.generation}</p><h2>{selected.name}</h2><div className="types detail-types">{selected.types.map(t=><TypeBadge key={t} type={t}/>)}</div><section className="detail-stats" aria-label={`${selected.name} base stats`}><p className="eyebrow">BASE STATS</p><div className="stat-grid">{baseStatLabels.map(([key,label])=>{const value=selected.baseStats[key];return <div className="stat-item" key={key}><div className="stat-heading"><span>{label}</span><strong>{value}</strong></div><div className="stat-track" role="meter" aria-label={label} aria-valuemin={0} aria-valuemax={255} aria-valuenow={value}><i style={{width:`${value/255*100}%`}}/></div></div>})}</div></section><div className="detail-status" aria-label="Pokémon status"><span><i className={(progress[selected.id]??EMPTY).caught?"status-dot caught-dot":"status-dot"}/><strong>Status</strong><b>{(progress[selected.id]??EMPTY).caught?"Caught":"Uncaught"}</b></span><span><i className={(progress[selected.id]??EMPTY).wasOnTeam?"status-dot team-dot":"status-dot"}/><strong>Team</strong><b>{(progress[selected.id]??EMPTY).wasOnTeam?"Was on your team":"Not on your team"}</b></span></div><div className="detail-actions"><button disabled={authLoading||cloudLoading} onClick={()=>change(selected.id,{caught:!(progress[selected.id]??EMPTY).caught})}><PokeballIcon caught={(progress[selected.id]??EMPTY).caught}/>{(progress[selected.id]??EMPTY).caught?"Mark uncaught":"Mark caught"}</button><button disabled={authLoading||cloudLoading} className={(progress[selected.id]??EMPTY).wasOnTeam?"team-selected":""} onClick={()=>change(selected.id,{wasOnTeam:!(progress[selected.id]??EMPTY).wasOnTeam})}>{(progress[selected.id]??EMPTY).wasOnTeam?"★ Was on my team":"☆ Add team history"}</button></div></section></div>}
+    {selected&&<div className="backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setSelected(null)}}><section className="detail" role="dialog" aria-modal="true" aria-label={selected.name}>
+      <button className="close" onClick={()=>setSelected(null)} aria-label="Close details">×</button>
+      <div className={`detail-art ${(progress[selected.id]??EMPTY).caught?"":"silhouette"}`} style={typeArtworkStyle(selected.types)}>
+        <div className={`art-type-watermarks ${selected.types.length>1?"dual":""}`} aria-hidden="true">
+          <img className="art-type-watermark" src={`${TYPE_ICON_BASE}marks/${selected.types[0]}.svg`} alt=""/>
+          {selected.types.length>1&&<img className="art-type-watermark secondary" src={`${TYPE_ICON_BASE}marks/${selected.types[1]}.svg`} alt=""/>}
+        </div>
+        <img src={selected.sprite} alt={selected.name} onError={e=>fallbackSprite(e,selected.id)}/>
+      </div>
+      <p className="eyebrow">NATIONAL DEX #{String(selected.id).padStart(4,"0")} · GEN {selected.generation}</p>
+      <h2>{selected.name}</h2>
+      <div className="types detail-types">{selected.types.map(t=><TypeBadge key={t} type={t}/>)}</div>
+      <section className="detail-stats" aria-label={`${selected.name} base stats`}><p className="eyebrow">BASE STATS</p><div className="stat-grid">{baseStatLabels.map(([key,label])=>{const value=selected.baseStats[key];return <div className="stat-item" key={key}><div className="stat-heading"><span>{label}</span><strong>{value}</strong></div><div className="stat-track" role="meter" aria-label={label} aria-valuemin={0} aria-valuemax={255} aria-valuenow={value}><i style={{width:`${value/255*100}%`}}/></div></div>})}</div></section>
+      <div className="detail-status" aria-label="Pokémon status"><span><i className={(progress[selected.id]??EMPTY).caught?"status-dot caught-dot":"status-dot"}/><strong>Status</strong><b>{(progress[selected.id]??EMPTY).caught?"Caught":"Uncaught"}</b></span><span><i className={(progress[selected.id]??EMPTY).wasOnTeam?"status-dot team-dot":"status-dot"}/><strong>Team</strong><b>{(progress[selected.id]??EMPTY).wasOnTeam?"Was on your team":"Not on your team"}</b></span></div>
+      <div className="detail-actions"><button disabled={authLoading||cloudLoading} onClick={()=>change(selected.id,{caught:!(progress[selected.id]??EMPTY).caught})}><PokeballIcon caught={(progress[selected.id]??EMPTY).caught}/>{(progress[selected.id]??EMPTY).caught?"Mark uncaught":"Mark caught"}</button><button disabled={authLoading||cloudLoading} className={(progress[selected.id]??EMPTY).wasOnTeam?"team-selected":""} onClick={()=>change(selected.id,{wasOnTeam:!(progress[selected.id]??EMPTY).wasOnTeam})}>{(progress[selected.id]??EMPTY).wasOnTeam?"★ Remove from team":"☆ Add to team history"}</button></div>
+    </section></div>}
     {toast&&<div className="toast" role="status">✦ &nbsp;{toast}</div>}
     <footer>Tracking 1,025 species <span>·</span> Progress stays yours</footer>
   </main>
