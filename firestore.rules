@@ -1,0 +1,17 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{uid}/progress/{pokemonId} {
+      function validProgress() {
+        return request.resource.data.keys().hasOnly(['caught', 'wasOnTeam', 'updatedAt'])
+          && request.resource.data.caught is bool
+          && request.resource.data.wasOnTeam is bool
+          && (!request.resource.data.wasOnTeam || request.resource.data.caught);
+      }
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow create, update: if request.auth != null && request.auth.uid == uid && validProgress();
+      allow delete: if request.auth != null && request.auth.uid == uid;
+    }
+    match /{document=**} { allow read, write: if false; }
+  }
+}
