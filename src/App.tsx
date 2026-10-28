@@ -79,6 +79,7 @@ export default function App() {
   },[user,syncAttempt]);
   const visible=useMemo(()=>filterByGeneration(catalog,generation).filter(p=>!search||p.name.toLowerCase().includes(search.toLowerCase())||String(p.id).includes(search)),[generation,search]);
   const generationTotal=useMemo(()=>generation>0?catalog.filter(p=>p.generation===generation).length:0,[generation]);
+  const generationCaught=useMemo(()=>generation>0?catalog.reduce((count,p)=>count+(p.generation===generation&&progress[p.id]?.caught?1:0),0):0,[generation,progress]);
   const overallCaught=useMemo(()=>catalog.reduce((count,p)=>count+(progress[p.id]?.caught?1:0),0),[progress]);
   const completion=(overallCaught/catalog.length)*100;
   function change(id:number, patch:{caught?:boolean;wasOnTeam?:boolean}) {
@@ -108,7 +109,7 @@ export default function App() {
     {generation>0&&<section className={`generation-feature ${generations[generation-1].palette}`} aria-label={`Generation ${generation}: ${generations[generation-1].region}`}>
       <div className="generation-logo-frame"><span className="generation-logo-square"><img className="generation-game-logo" src={`${import.meta.env.BASE_URL}game-logos/${generations[generation-1].logo}`} alt={`${generations[generation-1].logoName} logo`} loading="lazy" onError={e=>{e.currentTarget.hidden=true;}}/></span></div>
       <div className="generation-copy"><p className="eyebrow">EXPLORE THE REGION</p><h2>{generations[generation-1].region}</h2><div className="game-names" aria-label="Related games">{generations[generation-1].games.map(game=><span className="game-name-art" key={game}>{game}</span>)}</div></div>
-      <div className="generation-total" aria-label={`${generationTotal} Pokémon in generation ${generation}`}><strong>{generationTotal}</strong><span>POKÉMON</span></div>
+      <div className="generation-total" aria-label={`${generationCaught} of ${generationTotal} Pokémon caught in generation ${generation}`}><strong>{generationCaught}<span> / {generationTotal}</span></strong><span>CAUGHT</span></div>
 
 
     </section>}
